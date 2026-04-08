@@ -33,17 +33,28 @@
                 </div>
             </div>
             
-            <p style="margin-top: 1rem;">Mueve el 100% de tus fuerzas para conquistar la galaxia.</p>
-            <button id="start-button">INICIAR MISIÓN</button>
+            <button id="start-button">SELECCIONAR NIVEL</button>
+        </div>
+
+        <div id="level-selector-screen" class="overlay hidden">
+            <h1>CAMPAÑA</h1>
+            <div id="level-grid" class="level-grid">
+                <!-- Levels will be injected here -->
+            </div>
+            <button id="back-to-start" style="margin-top: 2rem; width: auto; padding: 0.8rem 2rem; font-size: 0.8rem;">VOLVER</button>
         </div>
 
         <div id="game-over-screen" class="overlay hidden">
             <h1 id="game-over-title">MISIÓN FALLIDA</h1>
             <p id="game-over-msg">Tus fuerzas han sido diezmadas. La galaxia cae en el caos.</p>
-            <button id="restart-button">REINTENTAR</button>
+            <div style="display: flex; gap: 1rem; width: 100%; justify-content: center;">
+                <button id="restart-button" style="width: auto;">REINTENTAR</button>
+                <button id="next-level-button" class="hidden" style="width: auto; border-color: var(--accent-blue);">SIGUIENTE</button>
+                <button id="menu-button" style="width: auto;">MENÚ</button>
+            </div>
         </div>
 
-        <div id="version-tag">v1.2.0-AdvancedControls</div>
+        <div id="version-tag">v1.3.0</div>
     </div>
 
     <script src="game.js"></script>

@@ -21,16 +21,43 @@ let selectedPlanet = null;
 let mousePos = { x: 0, y: 0 };
 let isDragging = false;
 let stars = [];
+let currentLevel = 0;
+let unlockedLevels = [0]; // Indices of unlocked levels
+let wonLevels = []; // Indices of won levels
+
+// Load progress
+const savedProgress = localStorage.getItem('planetaryConquestProgress');
+if (savedProgress) {
+    const data = JSON.parse(savedProgress);
+    unlockedLevels = data.unlocked || [0];
+    wonLevels = data.won || [];
+}
+
+function saveProgress() {
+    localStorage.setItem('planetaryConquestProgress', JSON.stringify({
+        unlocked: unlockedLevels,
+        won: wonLevels
+    }));
+}
 
 // Configuration
 const CONFIG = {
     PLANET_MIN_RADIUS: 25,
     PLANET_MAX_RADIUS: 50,
     UNIT_SPEED: 1.5,
-    PRODUCTION_RATE: 0.02, // Units per frame per radius point
-    ATTACK_PERCENTAGE: 1.0, // Send 100% of units
-    AI_DECISION_INTERVAL: 2000, // 2 seconds
+    PRODUCTION_RATE: 0.02, 
+    ATTACK_PERCENTAGE: 1.0, 
+    AI_DECISION_INTERVAL: 2000, 
 };
+
+const LEVELS = [
+    { name: "Sector Alfa", planetCount: 4, aiProduction: 0.015, aiInitialUnits: 30, aiAggression: 3000 },
+    { name: "Nébula Roja", planetCount: 6, aiProduction: 0.02, aiInitialUnits: 40, aiAggression: 2500 },
+    { name: "Cinturón de Orión", planetCount: 8, aiProduction: 0.022, aiInitialUnits: 50, aiAggression: 2000 },
+    { name: "Súper Nova", planetCount: 10, aiProduction: 0.025, aiInitialUnits: 60, aiAggression: 1800 },
+    { name: "Agujero Negro", planetCount: 12, aiProduction: 0.028, aiInitialUnits: 75, aiAggression: 1500 },
+    { name: "Centro Galáctico", planetCount: 15, aiProduction: 0.035, aiInitialUnits: 100, aiAggression: 1200 }
+];
 
 class Planet {
     constructor(x, y, radius, team) {
@@ -45,7 +72,8 @@ class Planet {
 
     update() {
         if (this.team !== TEAMS.NEUTRAL) {
-            this.productionAccumulator += CONFIG.PRODUCTION_RATE * (this.radius / 30);
+            const prodRate = this.team === TEAMS.AI ? LEVELS[currentLevel].aiProduction : CONFIG.PRODUCTION_RATE;
+            this.productionAccumulator += prodRate * (this.radius / 30);
             if (this.productionAccumulator >= 1) {
                 this.units += Math.floor(this.productionAccumulator);
                 this.productionAccumulator %= 1;
@@ -203,32 +231,36 @@ function drawStars() {
     ctx.globalAlpha = 1.0;
 }
 
-function initGame() {
+function initGame(levelIdx = 0) {
+    currentLevel = levelIdx;
     planets = [];
     units = [];
+    particles = [];
     
+    const levelData = LEVELS[currentLevel];
     const isPortrait = canvas.height > canvas.width;
     const padding = 60;
 
     // Home base players
     if (isPortrait) {
-        // Vertical distribution for mobile
         planets.push(new Planet(canvas.width / 2, canvas.height - padding - 40, 45, TEAMS.PLAYER));
         planets.push(new Planet(canvas.width / 2, padding + 40, 45, TEAMS.AI));
     } else {
-        // Horizontal distribution for desktop
         planets.push(new Planet(padding + 40, canvas.height / 2, 50, TEAMS.PLAYER));
         planets.push(new Planet(canvas.width - padding - 40, canvas.height / 2, 50, TEAMS.AI));
     }
 
-    // Distribute neutral planets
-    const planetCount = isPortrait ? 6 : 9;
+    // Set AI initial units for the level
+    planets.find(p => p.team === TEAMS.AI).units = levelData.aiInitialUnits;
+
+    // Distribute neutral planets based on level
+    const planetCount = levelData.planetCount;
     for (let i = 0; i < planetCount; i++) {
         let x, y, r;
         let overlapping = true;
         let attempts = 0;
 
-        while (overlapping && attempts < 100) {
+        while (overlapping && attempts < 150) {
             r = Math.random() * (CONFIG.PLANET_MAX_RADIUS - CONFIG.PLANET_MIN_RADIUS) + CONFIG.PLANET_MIN_RADIUS;
             x = Math.random() * (canvas.width - r * 4) + r * 2;
             y = Math.random() * (canvas.height - r * 4) + r * 2;
@@ -236,7 +268,7 @@ function initGame() {
             
             for (let p of planets) {
                 const dist = Math.hypot(p.x - x, p.y - y);
-                if (dist < (p.radius + r) * 2) {
+                if (dist < (p.radius + r) * 2.2) {
                     overlapping = true;
                     break;
                 }
@@ -245,7 +277,13 @@ function initGame() {
         }
         if (!overlapping) planets.push(new Planet(x, y, r, TEAMS.NEUTRAL));
     }
+
+    // Update AI Interval
+    if (aiInterval) clearInterval(aiInterval);
+    aiInterval = setInterval(handleAI, levelData.aiAggression);
 }
+
+let aiInterval = null;
 
 function handleAI() {
     if (gameState !== 'PLAYING') return;
@@ -346,17 +384,36 @@ function endGame(result) {
     gameOverScreen.classList.remove('hidden');
     const title = document.getElementById('game-over-title');
     const msg = document.getElementById('game-over-msg');
+    const nextBtn = document.getElementById('next-level-button');
     
     if (result === 'VICTORY') {
         title.innerText = 'SISTEMA ASEGURADO';
         title.style.background = 'linear-gradient(to right, #00d2ff, #fff)';
         title.style.webkitBackgroundClip = 'text';
-        msg.innerText = 'Has conquistado el sector. La galaxia está bajo tu mando.';
+        title.style.backgroundClip = 'text';
+        msg.innerText = `Has conquistado el nivel ${currentLevel + 1}. La galaxia está bajo tu mando.`;
+        
+        // Progress logic
+        if (!wonLevels.includes(currentLevel)) {
+            wonLevels.push(currentLevel);
+        }
+        if (currentLevel + 1 < LEVELS.length && !unlockedLevels.includes(currentLevel + 1)) {
+            unlockedLevels.push(currentLevel + 1);
+        }
+        saveProgress();
+        
+        if (currentLevel + 1 < LEVELS.length) {
+            nextBtn.classList.remove('hidden');
+        } else {
+            nextBtn.classList.add('hidden');
+        }
     } else {
         title.innerText = 'MISIÓN FALLIDA';
         title.style.background = 'linear-gradient(to right, #ff3c5c, #fff)';
         title.style.webkitBackgroundClip = 'text';
+        title.style.backgroundClip = 'text';
         msg.innerText = 'Tus fuerzas han sido diezmadas. La galaxia cae en el caos.';
+        nextBtn.classList.add('hidden');
     }
 }
 
@@ -468,16 +525,61 @@ canvas.addEventListener('touchend', (e) => {
 }, { passive: false });
 
 // UI Handlers
+const levelSelectorScreen = document.getElementById('level-selector-screen');
+const levelGrid = document.getElementById('level-grid');
+const backToStartBtn = document.getElementById('back-to-start');
+const nextLevelBtn = document.getElementById('next-level-button');
+const menuBtn = document.getElementById('menu-button');
+
+function updateLevelGrid() {
+    levelGrid.innerHTML = '';
+    LEVELS.forEach((level, index) => {
+        const btn = document.createElement('div');
+        btn.className = 'level-button';
+        if (!unlockedLevels.includes(index)) {
+            btn.classList.add('locked');
+        } else {
+            btn.innerText = index + 1;
+            if (wonLevels.includes(index)) {
+                btn.classList.add('won');
+            }
+            btn.addEventListener('click', () => {
+                levelSelectorScreen.classList.add('hidden');
+                gameState = 'PLAYING';
+                initGame(index);
+            });
+        }
+        levelGrid.appendChild(btn);
+    });
+}
+
 startBtn.addEventListener('click', () => {
     startScreen.classList.add('hidden');
-    gameState = 'PLAYING';
-    initGame();
+    levelSelectorScreen.classList.remove('hidden');
+    updateLevelGrid();
+});
+
+backToStartBtn.addEventListener('click', () => {
+    levelSelectorScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
 });
 
 restartBtn.addEventListener('click', () => {
     gameOverScreen.classList.add('hidden');
     gameState = 'PLAYING';
-    initGame();
+    initGame(currentLevel);
+});
+
+nextLevelBtn.addEventListener('click', () => {
+    gameOverScreen.classList.add('hidden');
+    gameState = 'PLAYING';
+    initGame(currentLevel + 1);
+});
+
+menuBtn.addEventListener('click', () => {
+    gameOverScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+    gameState = 'START';
 });
 
 // Resize
@@ -485,10 +587,8 @@ function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     initStars();
-    if (gameState === 'PLAYING') initGame();
 }
 
 window.addEventListener('resize', resize);
 resize();
 draw();
-setInterval(handleAI, CONFIG.AI_DECISION_INTERVAL);
