@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Planetary Conquest - Auralux Clone</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0c">
+    <link rel="apple-touch-icon" href="icon.png">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="hud">
+            <div class="hud-item score-blue">Player: <span id="player-planets">1</span></div>
+            <div class="hud-item score-red">AI: <span id="ai-planets">1</span></div>
+        </div>
+
+        <div id="start-screen" class="overlay">
+            <h1>PLANETARY</h1>
+            <h1 style="font-size: 2.5rem; margin-top: -1.5rem;">CONQUEST</h1>
+            <p>Captura los núcleos planetarios vecinos. Arrastra desde un planeta que controles hacia otro para enviar tus unidades. Conquista toda la galaxia.</p>
+            <button id="start-button">INICIAR MISIÓN</button>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+            <h1 id="game-over-title">MISIÓN FALLIDA</h1>
+            <p id="game-over-msg">Tus fuerzas han sido diezmadas. La galaxia cae en el caos.</p>
+            <button id="restart-button">REINTENTAR</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered'))
+                    .catch(err => console.log('SW Error', err));
+            });
+        }
+    </script>
+</body>
+</html>
