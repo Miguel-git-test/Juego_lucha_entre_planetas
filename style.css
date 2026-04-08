@@ -134,6 +134,32 @@ button {
   width: min(300px, 80%);
 }
 
+.speed-selector {
+  margin-bottom: 2rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.speed-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.speed-btn {
+  padding: 0.6rem 1.2rem !important;
+  font-size: 0.7rem !important;
+  width: auto !important;
+}
+
+.speed-btn.active {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 15px var(--glow-blue);
+  background: rgba(0, 210, 255, 0.1);
+}
+
 .level-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));

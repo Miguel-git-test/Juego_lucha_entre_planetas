@@ -24,6 +24,7 @@ let stars = [];
 let currentLevel = 0;
 let unlockedLevels = [0]; // Indices of unlocked levels
 let wonLevels = []; // Indices of won levels
+let gameSpeed = 1.0;
 
 // Load progress
 const savedProgress = localStorage.getItem('planetaryConquestProgress');
@@ -31,12 +32,14 @@ if (savedProgress) {
     const data = JSON.parse(savedProgress);
     unlockedLevels = data.unlocked || [0];
     wonLevels = data.won || [];
+    gameSpeed = data.speed || 1.0;
 }
 
 function saveProgress() {
     localStorage.setItem('planetaryConquestProgress', JSON.stringify({
         unlocked: unlockedLevels,
-        won: wonLevels
+        won: wonLevels,
+        speed: gameSpeed
     }));
 }
 
@@ -72,7 +75,8 @@ class Planet {
 
     update() {
         if (this.team !== TEAMS.NEUTRAL) {
-            const prodRate = this.team === TEAMS.AI ? LEVELS[currentLevel].aiProduction : CONFIG.PRODUCTION_RATE;
+            const baseRate = this.team === TEAMS.AI ? LEVELS[currentLevel].aiProduction : CONFIG.PRODUCTION_RATE;
+            const prodRate = baseRate * gameSpeed;
             this.productionAccumulator += prodRate * (this.radius / 30);
             if (this.productionAccumulator >= 1) {
                 this.units += Math.floor(this.productionAccumulator);
@@ -136,6 +140,12 @@ class Unit {
     }
 
     update() {
+        const currentSpeed = CONFIG.UNIT_SPEED * gameSpeed;
+        this.velocity = {
+            x: Math.cos(this.angle) * currentSpeed,
+            y: Math.sin(this.angle) * currentSpeed
+        };
+        
         this.x += this.velocity.x;
         this.y += this.velocity.y;
 
@@ -280,7 +290,8 @@ function initGame(levelIdx = 0) {
 
     // Update AI Interval
     if (aiInterval) clearInterval(aiInterval);
-    aiInterval = setInterval(handleAI, levelData.aiAggression);
+    const interval = levelData.aiAggression / gameSpeed;
+    aiInterval = setInterval(handleAI, interval);
 }
 
 let aiInterval = null;
@@ -581,6 +592,30 @@ menuBtn.addEventListener('click', () => {
     startScreen.classList.remove('hidden');
     gameState = 'START';
 });
+
+// Speed Handlers
+const speedBtns = document.querySelectorAll('.speed-btn');
+
+function updateSpeedUI() {
+    speedBtns.forEach(btn => {
+        if (parseFloat(btn.dataset.speed) === gameSpeed) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+}
+
+speedBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        gameSpeed = parseFloat(btn.dataset.speed);
+        updateSpeedUI();
+        saveProgress();
+    });
+});
+
+// Initialize Speed UI
+updateSpeedUI();
 
 // Resize
 function resize() {
