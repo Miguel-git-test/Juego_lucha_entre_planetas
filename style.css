@@ -78,12 +78,45 @@ h1 {
 }
 
 p {
-  font-size: clamp(0.9rem, 4vw, 1.1rem);
+  font-size: clamp(0.9rem, 4vw, 1rem);
   margin-bottom: 2rem;
-  color: #888;
-  max-width: 85%;
+  color: #ccc;
+  max-width: 90%;
   text-align: center;
-  line-height: 1.5;
+  line-height: 1.4;
+}
+
+.tutorial-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  width: min(400px, 90%);
+}
+
+.tutorial-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--glass-bg);
+  padding: 1rem;
+  border-radius: 15px;
+  border: 1px solid var(--glass-border);
+  text-align: left;
+}
+
+.tutorial-item .icon {
+  font-size: 1.5rem;
+  min-width: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.tutorial-item p {
+  margin-bottom: 0;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #fff;
 }
 
 button {

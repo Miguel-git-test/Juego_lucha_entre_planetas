@@ -28,7 +28,7 @@ const CONFIG = {
     PLANET_MAX_RADIUS: 50,
     UNIT_SPEED: 1.5,
     PRODUCTION_RATE: 0.02, // Units per frame per radius point
-    ATTACK_PERCENTAGE: 0.5, // Send 50% of units
+    ATTACK_PERCENTAGE: 1.0, // Send 100% of units
     AI_DECISION_INTERVAL: 2000, // 2 seconds
 };
 
@@ -363,8 +363,19 @@ function endGame(result) {
 // Input Handlers
 function getGamePos(e) {
     const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    let clientX, clientY;
+
+    if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+
     return {
         x: clientX - rect.left,
         y: clientY - rect.top
@@ -374,8 +385,27 @@ function getGamePos(e) {
 canvas.addEventListener('mousedown', (e) => {
     if (gameState !== 'PLAYING') return;
     const pos = getGamePos(e);
-    selectedPlanet = planets.find(p => Math.hypot(p.x - pos.x, p.y - pos.y) < p.radius && p.team === TEAMS.PLAYER);
-    if (selectedPlanet) isDragging = true;
+    const tappedPlanet = planets.find(p => Math.hypot(p.x - pos.x, p.y - pos.y) < p.radius);
+    
+    if (tappedPlanet && tappedPlanet.team === TEAMS.PLAYER) {
+        // Carry over persistent selection or start a new one
+        if (selectedPlanet && selectedPlanet !== tappedPlanet) {
+            // Already had one selected, but clicked another of mine?
+            // Optional: Treat as source change or reinforcement? 
+            // Standard: Just change selection
+        }
+        selectedPlanet = tappedPlanet;
+        isDragging = true;
+    } else if (tappedPlanet && selectedPlanet) {
+        // Tapped a different planet while one was selected (Two-Tap)
+        sendUnits(selectedPlanet, tappedPlanet);
+        selectedPlanet = null;
+        isDragging = false;
+    } else {
+        // Tapped background
+        selectedPlanet = null;
+        isDragging = false;
+    }
 });
 
 window.addEventListener('mousemove', (e) => {
@@ -387,12 +417,15 @@ window.addEventListener('mouseup', (e) => {
     const pos = getGamePos(e);
     const target = planets.find(p => Math.hypot(p.x - pos.x, p.y - pos.y) < p.radius);
     
+    // Distinguish between Drag-and-Drop and Toggle-Selection
+    // If we released on a DIFFERENT planet, it's a drag attack.
     if (target && target !== selectedPlanet) {
         sendUnits(selectedPlanet, target);
-    }
+        selectedPlanet = null;
+    } 
+    // If we released on the SAME planet, keep it selected for Two-Tap.
     
     isDragging = false;
-    selectedPlanet = null;
 });
 
 // Touch support
@@ -400,8 +433,19 @@ canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (gameState !== 'PLAYING') return;
     const pos = getGamePos(e);
-    selectedPlanet = planets.find(p => Math.hypot(p.x - pos.x, p.y - pos.y) < p.radius && p.team === TEAMS.PLAYER);
-    if (selectedPlanet) isDragging = true;
+    const tappedPlanet = planets.find(p => Math.hypot(p.x - pos.x, p.y - pos.y) < p.radius);
+
+    if (tappedPlanet && tappedPlanet.team === TEAMS.PLAYER) {
+        selectedPlanet = tappedPlanet;
+        isDragging = true;
+    } else if (tappedPlanet && selectedPlanet) {
+        sendUnits(selectedPlanet, tappedPlanet);
+        selectedPlanet = null;
+        isDragging = false;
+    } else {
+        selectedPlanet = null;
+        isDragging = false;
+    }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', (e) => {
@@ -417,10 +461,10 @@ canvas.addEventListener('touchend', (e) => {
     
     if (target && target !== selectedPlanet) {
         sendUnits(selectedPlanet, target);
+        selectedPlanet = null;
     }
     
     isDragging = false;
-    selectedPlanet = null;
 }, { passive: false });
 
 // UI Handlers
