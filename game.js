@@ -9,9 +9,19 @@ const aiPlanetsHud = document.getElementById('ai-planets');
 
 const TEAMS = {
     NEUTRAL: { color: '#555555', glow: 'rgba(85, 85, 85, 0.4)', name: 'Neutral' },
-    PLAYER: { color: '#00d2ff', glow: 'rgba(0, 210, 255, 0.6)', name: 'Player' },
-    AI: { color: '#ff3c5c', glow: 'rgba(255, 60, 92, 0.6)', name: 'AI' }
+    PLAYER: { color: '#00d2ff', glow: 'rgba(0, 210, 255, 0.6)', name: 'Player' }
 };
+
+const AI_POOL = [
+    { color: '#ff3c5c', glow: 'rgba(255, 60, 92, 0.6)', name: 'AI Rojo' },
+    { color: '#39ff14', glow: 'rgba(57, 255, 20, 0.6)', name: 'AI Verde' },
+    { color: '#ff9d00', glow: 'rgba(255, 157, 0, 0.6)', name: 'AI Naranja' },
+    { color: '#bd00ff', glow: 'rgba(189, 0, 255, 0.6)', name: 'AI Púrpura' },
+    { color: '#f0ff00', glow: 'rgba(240, 255, 0, 0.6)', name: 'AI Amarillo' },
+    { color: '#ff00f0', glow: 'rgba(255, 0, 240, 0.6)', name: 'AI Rosa' }
+];
+
+let activeAIs = [];
 
 let planets = [];
 let units = [];
@@ -53,14 +63,22 @@ const CONFIG = {
     AI_DECISION_INTERVAL: 2000, 
 };
 
-const LEVELS = [
-    { name: "Sector Alfa", planetCount: 4, aiProduction: 0.015, aiInitialUnits: 30, aiAggression: 3000 },
-    { name: "Nébula Roja", planetCount: 6, aiProduction: 0.02, aiInitialUnits: 40, aiAggression: 2500 },
-    { name: "Cinturón de Orión", planetCount: 8, aiProduction: 0.022, aiInitialUnits: 50, aiAggression: 2000 },
-    { name: "Súper Nova", planetCount: 10, aiProduction: 0.025, aiInitialUnits: 60, aiAggression: 1800 },
-    { name: "Agujero Negro", planetCount: 12, aiProduction: 0.028, aiInitialUnits: 75, aiAggression: 1500 },
-    { name: "Centro Galáctico", planetCount: 15, aiProduction: 0.035, aiInitialUnits: 100, aiAggression: 1200 }
-];
+function getLevelConfig(index) {
+    const aiCount = 1 + Math.floor(index / 5);
+    const planetCount = Math.min(30, 4 + index);
+    const aggression = Math.max(800, 3000 - (index * 50));
+    const production = 0.015 + (index * 0.0005);
+    
+    return {
+        aiCount: Math.min(AI_POOL.length, aiCount),
+        planetCount: planetCount,
+        aiAggression: aggression,
+        aiProduction: Math.min(0.045, production),
+        name: `Sector ${index + 1}`
+    };
+}
+
+const TOTAL_LEVELS = 50;
 
 class Planet {
     constructor(x, y, radius, team) {
@@ -75,7 +93,8 @@ class Planet {
 
     update() {
         if (this.team !== TEAMS.NEUTRAL) {
-            const baseRate = this.team === TEAMS.AI ? LEVELS[currentLevel].aiProduction : CONFIG.PRODUCTION_RATE;
+            const config = getLevelConfig(currentLevel);
+            const baseRate = this.isPlayerTeam() ? CONFIG.PRODUCTION_RATE : config.aiProduction;
             const prodRate = baseRate * gameSpeed;
             this.productionAccumulator += prodRate * (this.radius / 30);
             if (this.productionAccumulator >= 1) {
@@ -83,6 +102,10 @@ class Planet {
                 this.productionAccumulator %= 1;
             }
         }
+    }
+
+    isPlayerTeam() {
+        return this.team === TEAMS.PLAYER;
     }
 
     draw() {
@@ -247,30 +270,47 @@ function initGame(levelIdx = 0) {
     units = [];
     particles = [];
     
-    const levelData = LEVELS[currentLevel];
+    const config = getLevelConfig(currentLevel);
     const isPortrait = canvas.height > canvas.width;
     const padding = 60;
 
-    // Home base players
-    if (isPortrait) {
-        planets.push(new Planet(canvas.width / 2, canvas.height - padding - 40, 45, TEAMS.PLAYER));
-        planets.push(new Planet(canvas.width / 2, padding + 40, 45, TEAMS.AI));
-    } else {
-        planets.push(new Planet(padding + 40, canvas.height / 2, 50, TEAMS.PLAYER));
-        planets.push(new Planet(canvas.width - padding - 40, canvas.height / 2, 50, TEAMS.AI));
-    }
+    // Setup active AIs for this level
+    activeAIs = AI_POOL.slice(0, config.aiCount);
 
-    // Set AI initial units for the level
-    planets.find(p => p.team === TEAMS.AI).units = levelData.aiInitialUnits;
+    // Dynamic HUD Setup
+    const hud = document.getElementById('hud');
+    hud.innerHTML = `<div class="hud-item score-blue">Player: <span id="p-score">0</span></div>`;
+    activeAIs.forEach((ai, i) => {
+        hud.innerHTML += `<div class="hud-item" style="color: ${ai.color}">${ai.name}: <span id="ai-score-${i}">0</span></div>`;
+    });
 
-    // Distribute neutral planets based on level
-    const planetCount = levelData.planetCount;
-    for (let i = 0; i < planetCount; i++) {
+    // Home base player
+    planets.push(new Planet(canvas.width / 2, canvas.height - padding - 40, 45, TEAMS.PLAYER));
+
+    // Distribute AI home bases
+    const aiBaseRadius = 45;
+    activeAIs.forEach((ai, i) => {
+        let x, y;
+        if (isPortrait) {
+            x = (canvas.width / (config.aiCount + 1)) * (i + 1);
+            y = padding + 40;
+        } else {
+            x = canvas.width - padding - 40;
+            y = (canvas.height / (config.aiCount + 1)) * (i + 1);
+        }
+        const p = new Planet(x, y, aiBaseRadius, ai);
+        p.units = 50 + (levelIdx * 2);
+        planets.push(p);
+    });
+
+    // Distribute neutral planets
+    const neutralCount = config.planetCount - (1 + config.aiCount);
+    for (let i = 0; i < neutralCount; i++) {
         let x, y, r;
         let overlapping = true;
         let attempts = 0;
 
-        while (overlapping && attempts < 150) {
+        while (overlapping && attempts < 200) {
             r = Math.random() * (CONFIG.PLANET_MAX_RADIUS - CONFIG.PLANET_MIN_RADIUS) + CONFIG.PLANET_MIN_RADIUS;
             x = Math.random() * (canvas.width - r * 4) + r * 2;
             y = Math.random() * (canvas.height - r * 4) + r * 2;
@@ -278,7 +318,7 @@ function initGame(levelIdx = 0) {
             
             for (let p of planets) {
                 const dist = Math.hypot(p.x - x, p.y - y);
-                if (dist < (p.radius + r) * 2.2) {
+                if (dist < (p.radius + r) * 2.1) {
                     overlapping = true;
                     break;
                 }
@@ -288,10 +328,8 @@ function initGame(levelIdx = 0) {
         if (!overlapping) planets.push(new Planet(x, y, r, TEAMS.NEUTRAL));
     }
 
-    // Update AI Interval
     if (aiInterval) clearInterval(aiInterval);
-    const interval = levelData.aiAggression / gameSpeed;
-    aiInterval = setInterval(handleAI, interval);
+    aiInterval = setInterval(handleAI, config.aiAggression);
 }
 
 let aiInterval = null;
@@ -299,23 +337,28 @@ let aiInterval = null;
 function handleAI() {
     if (gameState !== 'PLAYING') return;
     
-    const aiPlanets = planets.filter(p => p.team === TEAMS.AI);
-    if (aiPlanets.length === 0) return;
+    const config = getLevelConfig(currentLevel);
 
-    aiPlanets.forEach(p => {
-        if (p.units > 20) {
-            // Find best target (closest or weakest)
-            let targets = planets.filter(t => t.team !== TEAMS.AI);
-            if (targets.length === 0) return;
-            
-            targets.sort((a, b) => {
-                const distA = Math.hypot(a.x - p.x, a.y - p.y);
-                const distB = Math.hypot(b.x - p.x, b.y - p.y);
-                return distA - distB;
-            });
+    activeAIs.forEach(aiTeam => {
+        const aiPlanets = planets.filter(p => p.team === aiTeam);
+        if (aiPlanets.length === 0) return;
 
-            sendUnits(p, targets[0]);
-        }
+        aiPlanets.forEach(p => {
+            if (p.units > 20) {
+                // Find best target (enemy or neutral)
+                let targets = planets.filter(t => t.team !== aiTeam);
+                if (targets.length === 0) return;
+                
+                targets.sort((a, b) => {
+                    const distA = Math.hypot(a.x - p.x, a.y - p.y);
+                    const distB = Math.hypot(b.x - p.x, b.y - p.y);
+                    // Weight selection by distance and units
+                    return distA - distB + (a.units * 2);
+                });
+
+                sendUnits(p, targets[0]);
+            }
+        });
     });
 }
 
@@ -353,15 +396,25 @@ function update() {
         }
     }
 
-    // Check Victory/Defeat
-    const playerAlive = planets.some(p => p.team === TEAMS.PLAYER) || units.some(u => u.team === TEAMS.PLAYER);
-    const aiAlive = planets.some(p => p.team === TEAMS.AI) || units.some(u => u.team === TEAMS.AI);
+    // Scoreboard update
+    const pScore = planets.filter(p => p.team === TEAMS.PLAYER).length;
+    const playerEl = document.getElementById('p-score');
+    if (playerEl) playerEl.innerText = pScore;
+    
+    activeAIs.forEach((ai, i) => {
+        const aiScore = planets.filter(p => p.team === ai).length;
+        const aiEl = document.getElementById(`ai-score-${i}`);
+        if (aiEl) aiEl.innerText = aiScore;
+    });
 
-    playerPlanetsHud.innerText = planets.filter(p => p.team === TEAMS.PLAYER).length;
-    aiPlanetsHud.innerText = planets.filter(p => p.team === TEAMS.AI).length;
+    // Win condition: Player is last one with planets OR units
+    const othersAlive = planets.some(p => p.team !== TEAMS.PLAYER && p.team !== TEAMS.NEUTRAL) || 
+                       units.some(u => u.team !== TEAMS.PLAYER);
+    const playerAlive = planets.some(p => p.team === TEAMS.PLAYER) || 
+                       units.some(u => u.team === TEAMS.PLAYER);
 
     if (!playerAlive) endGame('DEFEAT');
-    if (!aiAlive) endGame('VICTORY');
+    if (!othersAlive && playerAlive) endGame('VICTORY');
 }
 
 function draw() {
@@ -408,12 +461,12 @@ function endGame(result) {
         if (!wonLevels.includes(currentLevel)) {
             wonLevels.push(currentLevel);
         }
-        if (currentLevel + 1 < LEVELS.length && !unlockedLevels.includes(currentLevel + 1)) {
+        if (currentLevel + 1 < TOTAL_LEVELS && !unlockedLevels.includes(currentLevel + 1)) {
             unlockedLevels.push(currentLevel + 1);
         }
         saveProgress();
         
-        if (currentLevel + 1 < LEVELS.length) {
+        if (currentLevel + 1 < TOTAL_LEVELS) {
             nextBtn.classList.remove('hidden');
         } else {
             nextBtn.classList.add('hidden');
@@ -544,24 +597,25 @@ const menuBtn = document.getElementById('menu-button');
 
 function updateLevelGrid() {
     levelGrid.innerHTML = '';
-    LEVELS.forEach((level, index) => {
+    for (let i = 0; i < TOTAL_LEVELS; i++) {
         const btn = document.createElement('div');
         btn.className = 'level-button';
-        if (!unlockedLevels.includes(index)) {
+        if (!unlockedLevels.includes(i)) {
             btn.classList.add('locked');
         } else {
-            btn.innerText = index + 1;
-            if (wonLevels.includes(index)) {
+            btn.innerText = i + 1;
+            if (wonLevels.includes(i)) {
                 btn.classList.add('won');
             }
             btn.addEventListener('click', () => {
+                const config = getLevelConfig(i);
                 levelSelectorScreen.classList.add('hidden');
                 gameState = 'PLAYING';
-                initGame(index);
+                initGame(i);
             });
         }
         levelGrid.appendChild(btn);
-    });
+    }
 }
 
 startBtn.addEventListener('click', () => {

@@ -14,8 +14,7 @@
         <canvas id="gameCanvas"></canvas>
         
         <div id="hud">
-            <div class="hud-item score-blue">Player: <span id="player-planets">1</span></div>
-            <div class="hud-item score-red">AI: <span id="ai-planets">1</span></div>
+            <!-- Team statuses will be injected here dynamically -->
         </div>
 
         <div id="start-screen" class="overlay">
@@ -47,10 +46,10 @@
 
         <div id="level-selector-screen" class="overlay hidden">
             <h1>CAMPAÑA</h1>
-            <div id="level-grid" class="level-grid">
+            <div id="level-grid" class="level-grid" style="overflow-y: auto; max-height: 60vh; padding: 1rem;">
                 <!-- Levels will be injected here -->
             </div>
-            <button id="back-to-start" style="margin-top: 2rem; width: auto; padding: 0.8rem 2rem; font-size: 0.8rem;">VOLVER</button>
+            <button id="back-to-start" style="margin-top: 1rem; width: auto; padding: 0.8rem 2rem; font-size: 0.8rem;">VOLVER</button>
         </div>
 
         <div id="game-over-screen" class="overlay hidden">
@@ -63,7 +62,7 @@
             </div>
         </div>
 
-        <div id="version-tag">v1.3.0</div>
+        <div id="version-tag">v1.4.0</div>
     </div>
 
     <script src="game.js"></script>
