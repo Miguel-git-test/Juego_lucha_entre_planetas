@@ -148,3 +148,16 @@ button:active {
 .pulsing {
   animation: pulse 2s infinite ease-in-out;
 }
+
+#version-tag {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6rem;
+  color: #fff;
+  opacity: 0.15;
+  pointer-events: none;
+  letter-spacing: 0.1rem;
+  z-index: 100;
+}
